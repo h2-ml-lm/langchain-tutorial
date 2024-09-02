@@ -12,8 +12,10 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import ChatOpenAI
 
+from config import *
+
 def get_model():
-    return ChatOpenAI(model="gpt-4o-mini")
+    return ChatOpenAI(model="gpt-4o-mini", base_url=BASE_URL)
 
 def init_retriever():
     # 1. Load, chunk and index the contents of the blog to create a retriever.
@@ -64,7 +66,7 @@ if __name__ == "__main__":
     rag_chain = init_prompts(llm, retriever)
 
     response = rag_chain.invoke({"input": "What is Task Decomposition?"})
-    response["answer"]
+    print(response["answer"])
 
     #messages = [
     #    ("human", "What is the difference between supervised and unsupervised learning?"),
