@@ -20,7 +20,7 @@ from langchain_openai import ChatOpenAI
 
 from config import *
 
-def get_model(base_url=BASE_URL):
+def get_model(base_url=None):
     return ChatOpenAI(model="gpt-4o-mini", base_url=base_url)
 
 def init_retriever():
