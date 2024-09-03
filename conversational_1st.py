@@ -184,7 +184,7 @@ def dump_message_history():
         print(f"{prefix}: {message.content}\n")
 
 if __name__ == "__main__":
-    llm = get_model()
+    llm = get_model(base_url=BASE_URL)
     retriever, _ = init_retriever()
     rag_chain = init_chain(llm, retriever)
 
