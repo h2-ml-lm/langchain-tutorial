@@ -20,8 +20,8 @@ from langchain_openai import ChatOpenAI
 
 from config import *
 
-def get_model():
-    return ChatOpenAI(model="gpt-4o-mini", base_url=BASE_URL)
+def get_model(base_url=BASE_URL):
+    return ChatOpenAI(model="gpt-4o-mini", base_url=base_url)
 
 def init_retriever():
     print(f'\n{'*'*30}\nBuilding a vectorstore from a web page and getting a retriever...')
