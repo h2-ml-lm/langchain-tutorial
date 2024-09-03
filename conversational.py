@@ -3,17 +3,22 @@ dotenv.load_dotenv()
 
 import bs4
 from langchain import hub
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.prompts import MessagesPlaceholder
-from langchain_core.messages import AIMessage, HumanMessage
 from langchain.chains import create_retrieval_chain
 from langchain.chains import create_history_aware_retriever
 from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import MessagesPlaceholder
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory
+from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_community.document_loaders import WebBaseLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
+
+from langchain_core.runnables.history import RunnableWithMessageHistory
 
 from config import *
 
@@ -111,6 +116,24 @@ def init_history_chain(llm, history_aware_retriever):
 
     return rag_chain
 
+store = {}
+def get_session_history(session_id: str) -> BaseChatMessageHistory:
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    return store[session_id]
+
+def init_message_history_chain(llm, history_aware_retriever):
+    rag_chain = init_history_chain(llm, history_aware_retriever)
+    conversational_rag_chain = RunnableWithMessageHistory(
+        rag_chain,
+        get_session_history,
+        input_messages_key="input",
+        history_messages_key="chat_history",
+        output_messages_key="answer",
+    )
+
+    return conversational_rag_chain
+
 def try_history_chain(llm, history_aware_retriever):
     rag_chain = init_history_chain(llm, history_aware_retriever)
 
@@ -132,6 +155,35 @@ def try_history_chain(llm, history_aware_retriever):
     print(f'\n# Question: {second_question}')
     print(f'# Answer: {ai_msg_2["answer"]}')
 
+def try_message_history_chain(llm, history_aware_retriever):
+    conversational_rag_chain = init_message_history_chain(llm, history_aware_retriever)
+    question = "What is Task Decomposition?"
+    r = conversational_rag_chain.invoke(
+        {"input": question},
+        config={
+            "configurable": {"session_id": "abc123"}
+        },  # constructs a key "abc123" in `store`.
+    )
+    print(f'\n# Question: {question}')
+    print(f'# Answer: {r["answer"]}')
+
+    second_question = "What are common ways of doing it?"
+    r = conversational_rag_chain.invoke(
+        {"input": second_question},
+        config={"configurable": {"session_id": "abc123"}},
+    )
+    print(f'\n# Question: {second_question}')
+    print(f'# Answer: {r["answer"]}')
+
+def dump_message_history():
+    print(f'\n{'*'*30}\nMessage history in store...')
+    for message in store["abc123"].messages:
+        if isinstance(message, AIMessage):
+            prefix = "AI"
+        else:
+            prefix = "User"
+
+        print(f"{prefix}: {message.content}\n")
 
 if __name__ == "__main__":
     llm = get_model()
@@ -142,9 +194,12 @@ if __name__ == "__main__":
     response = rag_chain.invoke({"input": question})
     print(f'\n# Question: {question}')
     print(f'# Answer: {response["answer"]}')
-    print(response["answer"])
 
-    try_history_chain(llm, retriever)
+    history_aware_retriever = create_history_retriever(llm, retriever)
+    #try_history_chain(llm, history_aware_retriever)
+
+    try_message_history_chain(llm, history_aware_retriever)
+    dump_message_history()
     #messages = [
     #    ("human", "What is the difference between supervised and unsupervised learning?"),
     #]
