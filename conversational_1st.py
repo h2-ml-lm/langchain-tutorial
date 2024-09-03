@@ -18,8 +18,6 @@ from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from langchain_openai import ChatOpenAI
 
-from langchain_core.runnables.history import RunnableWithMessageHistory
-
 from config import *
 
 def get_model():
