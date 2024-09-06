@@ -7,22 +7,20 @@ from pprint import pp
 from operator import itemgetter
 
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
-from langchain_core.messages import AIMessage
+from langchain_core.messages import (
+    SystemMessage,
+    AIMessage,
+    HumanMessage)
+from langchain_core.messages import trim_messages
 from langchain_core.chat_history import (
     BaseChatMessageHistory,
-    InMemoryChatMessageHistory,
-)
+    InMemoryChatMessageHistory,)
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import SystemMessage, trim_messages
 
 def init_model(model="gpt-3.5-turbo", base_url="http://192.168.0.24:8080"):
     return ChatOpenAI(model=model, base_url=base_url)
-
-def invoke_a_model(model, messages):
-    return model.invoke(messages)
 
 store = {}
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
@@ -49,7 +47,7 @@ def converse_with_history(model):
         AIMessage(content="Hello Bob! How can I assist you today?"),
         HumanMessage(content="What's my name?"),
     ]
-    r = invoke_a_model(model, messages)
+    r = model.invoke(messages)
     print(f"\n2: {'#'*15} Query: Three messages\n{'='*10} {r.content}")
 
     messages = [HumanMessage(content="Hi, I'm Bob")]
@@ -220,5 +218,5 @@ def streaming(model):
 if __name__ == '__main__':
     model = ChatOpenAI(model="gpt-3.5-turbo", base_url="http://192.168.0.24:8080")
 
-    r = invoke_a_model(model, [HumanMessage(content='Hi')])
+    r = model.invoke([HumanMessage(content='Hi')])
     print(f"\n1: {'#'*15} Query:Hi\n{'='*10} {r.content}")
