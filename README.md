@@ -1,12 +1,13 @@
 ### LangChain Tutorials
   - [Build a Chatbot](https://python.langchain.com/v0.2/docs/tutorials/chatbot/)
   - [How to add message history](https://python.langchain.com/v0.2/docs/how_to/message_history/)
-* conversational_1st, final.py
+* chat_memory_1st.py, chat_memory_final.py
   - [Conversational RAG](https://python.langchain.com/v0.2/docs/tutorials/qa_chat_history/)
 * Others
   - [LLM Powered Autonomous Agents](https://lilianweng.github.io/posts/2023-06-23-agent/)
 
 ### How to Create your own LLM Agent from Scratch: A Step-by-Step Guide
+* agent_from_scratch.py
 * [How to Create your own LLM Agent from Scratch: A Step-by-Step Guide](https://gathnex.medium.com/how-to-create-your-own-llm-agent-from-scratch-a-step-by-step-guide-14b763e5b3b8)
 
 ### Building an Agent from Scratch with Langchain
