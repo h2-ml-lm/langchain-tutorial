@@ -79,7 +79,7 @@ def create_history_retriever(llm, retriever):
 
     return history_aware_retriever
 
-def init_history_chain(llm, history_aware_retriever):
+def init_history_chain(llm, retriever):
     print(f'\n{'*'*30}\nCreating a chain with the history-aware retriever and the language model...')
     # 2. Incorporate the retriever into a question-answering chain.
     system_prompt = (
@@ -100,7 +100,7 @@ def init_history_chain(llm, history_aware_retriever):
 
 
     question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
+    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
     return rag_chain
 
@@ -110,8 +110,8 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
         store[session_id] = ChatMessageHistory()
     return store[session_id]
 
-def init_message_history_chain(llm, history_aware_retriever):
-    rag_chain = init_history_chain(llm, history_aware_retriever)
+def init_message_history_chain(llm, retriever):
+    rag_chain = init_history_chain(llm, retriever)
     conversational_rag_chain = RunnableWithMessageHistory(
         rag_chain,
         get_session_history,
@@ -122,8 +122,7 @@ def init_message_history_chain(llm, history_aware_retriever):
 
     return conversational_rag_chain
 
-def try_message_history_chain(llm, history_aware_retriever):
-    conversational_rag_chain = init_message_history_chain(llm, history_aware_retriever)
+def try_message_history_chain(conversational_rag_chain):
     question = "What is Task Decomposition?"
     r = conversational_rag_chain.invoke(
         {"input": question},
@@ -160,6 +159,7 @@ if __name__ == "__main__":
     #retriever, vector_store = init_retriever(DB_PATH, "blog")
     retriever, vector_store = get_retriever(DB_PATH, COLLECTION)
 
-    history_aware_retriever = create_history_retriever(llm, retriever)
+    conversational_rag_chain = init_message_history_chain(llm, retriever)
+    history_aware_retriever = create_history_retriever(conversational_rag_chain)
     try_message_history_chain(llm, history_aware_retriever)
     dump_message_history()
