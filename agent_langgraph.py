@@ -83,13 +83,15 @@ def get_retriever(db_path, collection_name, k, embedding_function):
     store = get_vectorstore(db_path, collection_name, embedding_function)
     return store.as_retriever(k=k)
 
-def vectorstore_query(vectorstore, k=3):
+def try_vectorstore_query(vectorstore, k=3):
     query = "How do I make kale salad?"
     #results = vectorstore.similarity_search(query, k=k)
     results = vectorstore.search(query, search_type='mmr', k=k)
-    print(f'\nResults for query: {query}')
-    for r in results:
-        print('\n', r)
+    print(f'\n{"#"*50}\nQuery: {query}')
+    print(f'Enter any key to see the results')
+    input()
+    for i, r in enumerate(results):
+        print(f'\nResult #{i+1}:\n{r}')
 
 def get_llm(model="llama-3.1-70b-versatile"):
     return ChatGroq(model=model, temperature=0)
@@ -116,13 +118,14 @@ def init_question_router(llm):
 
     return question_router
 
-def router_query(router, query):
+def try_router_query(router, query):
     response =  router.invoke(query)
-    print(f'\nrouter response: ')
-    print(response)
-    print(f'\nrouter response.additional_kwargs: {response.additional_kwargs}')
+    print(f'\n\n{"#"*50}\nQuery to router: {query}\nPress any key to see the router response')
+    input()
+    print(f'router response.content: {response.content}')
+    print(f'router response.additional_kwargs: {response.additional_kwargs}')
 
-def init_grader(retriever, llm):
+def init_grader(llm):
     class DocumentGrader(BaseModel):
         "check if documents are relevant"
         grade: Literal["relevant", "irrelevant"] = Field(
@@ -136,7 +139,7 @@ def init_grader(retriever, llm):
                 return "irrelevant"
             return value
 
-    grader_system_prompt_template = """"You are a grader tasked with assessing the relevance of a given context to a query. 
+    grader_system_prompt_template = """You are a grader tasked with assessing the relevance of a given context to a query. 
         If the context is relevant to the query, score it as "relevant". Otherwise, give "irrelevant".
         Do not answer the actual answer, just provide the grade in JSON format with "grade" as the key, without any additional explanation."
         """
@@ -146,53 +149,54 @@ def init_grader(retriever, llm):
             ("human", "context: {context}\n\nquery: {query}"),
         ]
     )
-    grader_chain = grader_prompt | llm.with_structured_output(DocumentGrader, method="json_mode")
+
+    llm_json = llm.with_structured_output(DocumentGrader, method="json_mode")
+    grader_chain = grader_prompt | llm_json
 
     return grader_chain
 
-def grader_chain_query(retriever, grader_chain):
+def try_grader_chain_query(retriever, grader_chain):
     query = "ingredients for making cauliflower cheese"
     context = retriever.sim_search(query)
     response = grader_chain.invoke({"query": query, "context": context})
-    print('\n grader_chain response: ', response)
 
-def init_rag(retriever, llm):
+    print(f'\n\n{"#"*50}\nQuery to Grader chain: {query}\nPress any key to see the Grader chain response')
+    input()
+    print('grader_chain response: ', response)
+
+def init_rag(llm):
     rag_template_str = (
         "You are a helpful assistant. Answer the query below based on the provided context.\n\n"
         "context: {context}\n\n"
         "query: {query}"
     )
 
-
     rag_prompt = ChatPromptTemplate.from_template(rag_template_str)
     rag_chain = rag_prompt | llm | StrOutputParser()
 
+    return rag_chain
+
+def try_rag_chain_query(retriever, rag_chain):
     query = "How to make peach coffee cake?"
     context = retriever.sim_search(query)
-
     response = rag_chain.invoke({"query": query, "context": context})
-
-    print('\nrag_chain response: ', response)
-
-    return rag_chain
+    print(f'\n\n{"#"*50}\nQuery to RAG chain: {query}\nPress any key to see the RAG chain response')
+    input()
+    print('Rag_chain response: ', response)
 
 def init_fallback_chain(llm):
     fallback_prompt = ChatPromptTemplate.from_template(
-        (
-            "You are a well renowned chef your name is 'fayez'.\n"
+        (   "You are a well renowned chef your name is 'fayez'.\n"
             "Do not respond to queries that are not related to food.\n"
             "If a query is not related to food, acknowledge your limitations.\n"
             "Provide concise responses to only food related queries.\n\n"
             "Current conversations:\n\n{chat_history}\n\n"
             "human: {query}"
-        )
-    )
+        ))
 
     fallback_chain = (
-        {
-            "chat_history": lambda x: "\n".join(
-                [
-                    (
+        {   "chat_history": lambda x: "\n".join(
+                [  (
                         f"human: {msg.content}"
                         if isinstance(msg, HumanMessage)
                         else f"AI: {msg.content}"
@@ -207,17 +211,20 @@ def init_fallback_chain(llm):
         | StrOutputParser()
     )
 
+    return fallback_chain
+
+def try_fallback_chain_query(fallback_chain):
     response = fallback_chain.invoke(
         {
             "query": "Hello",
             "chat_history": [],
         }
     )
-    print('\n', 'fallback_chain response: ', response)
+    print(f'\n\n{"#"*50}\nQuery to Fallback chain: {"Hello"}\nPress any key to see the Fallback chain response')
+    input()
+    print(f'Fallback_chain response: {response}')
 
-    return fallback_chain
-
-def init_hallucination_grader(llm):
+def init_hallucination_grader_chain(llm):
     class HallucinationGrader(BaseModel):
         "hallucination grader"
 
@@ -251,16 +258,19 @@ def init_hallucination_grader(llm):
         | llm.with_structured_output(HallucinationGrader, method="json_mode")
     )
 
-    query = "how to make egg benedict"
-    context = retriever.sim_search(query)
-    response = """you just need eggs to make egg benedict"""
-
-    response = hallucination_grader_chain.invoke({"response": response, "context": context})
-    print('\nHallucination grader response: ', response)
-
     return hallucination_grader_chain
 
-def init_answer_grader(llm):
+def try_hallucination_grader_chain_query(retriever, hallucination_grader_chain):
+    query = "how to make egg benedict"
+    context = retriever.sim_search(query)
+    fool_response = """you just need eggs to make egg benedict"""
+
+    response = hallucination_grader_chain.invoke({"response": fool_response, "context": context})
+    print(f'\n\n{"#"*50}\nQuery to Hallucination-Grader chain: {query}\nPress any key to see the response')
+    input()
+    print(f'Hallucination grader response: {response}')
+
+def init_answer_grader_chain(llm):
     class AnswerGrader(BaseModel):
         "To check if provided answer is relevant"
 
@@ -441,19 +451,27 @@ if __name__ == "__main__":
     embedding_func = SentenceTransformerEmbeddings(model_name=MPNET_V2_EMBEDDING)
     #store = init_vectorstore(DB_PATH, COLLECTION_NAME, embedding_func)
     store = get_vectorstore(DB_PATH, COLLECTION_NAME, embedding_func)
-    vectorstore_query(store)
+    try_vectorstore_query(store)
+
+    question_router = init_question_router(llm)
+    try_router_query(question_router, "How do I make a salad?")
 
     retriever = init_retriever(store)
-    question_router = init_question_router(llm)
-    router_query(question_router, "How do I make a salad?")
 
-    grader_chain = init_grader(retriever, llm)
-    #grader_chain_query(retriever, grader_chain)
+    grader_chain = init_grader(llm)
+    try_grader_chain_query(retriever, grader_chain)
     
-    rag_chain = init_rag(retriever, llm)
+    rag_chain = init_rag(llm)
+    try_rag_chain_query(retriever, rag_chain)
+
     fallback_chain = init_fallback_chain(llm)
-    hallucination_grader_chain = init_hallucination_grader(llm)
-    answer_grader_chain = init_answer_grader(llm)
+    try_fallback_chain_query(fallback_chain)
+
+    hallucination_grader_chain = init_hallucination_grader_chain(llm)
+    try_hallucination_grader_chain_query(retriever, hallucination_grader_chain)
+
+    answer_grader_chain = init_answer_grader_chain(llm)
+
     tool_executor = get_tool_executor("VectorStore", retriever.sim_search, 
                          "Useful to search the vector database")
 
