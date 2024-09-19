@@ -25,7 +25,7 @@ from config import *
 def get_model(base_url=None):
     return ChatOpenAI(model="gpt-4o-mini", base_url=base_url)
 
-def init_retriever():
+def init_retriever(path, collection_name):
     print(f'\n{'*'*30}\nBuilding a vectorstore from a web page and getting a retriever...')
     # 1. Load, chunk and index the contents of the blog to create a retriever.
     loader = WebBaseLoader(
@@ -40,10 +40,22 @@ def init_retriever():
 
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     splits = text_splitter.split_documents(docs)
-    vectorstore = Chroma.from_documents(documents=splits, embedding=OpenAIEmbeddings())
+    vectorstore = Chroma.from_documents(persist_directory=path,
+                                        collection_name=collection_name,
+                                        documents=splits, 
+                                        embedding=OpenAIEmbeddings())
     retriever = vectorstore.as_retriever()
 
     return retriever, vectorstore
+
+def get_retriever(db_path, collection_name):
+    '''
+    Return an existing vector store
+    '''
+    vector_store =  Chroma(persist_directory=db_path, 
+                        collection_name=collection_name, 
+                        embedding_function=OpenAIEmbeddings())
+    return vector_store.as_retriever(), vector_store
 
 def create_history_retriever(llm, retriever):
     print(f'\n{'*'*30}\nCreating a retriever with history...')
@@ -140,9 +152,14 @@ def dump_message_history():
 
         print(f"{prefix}: {message.content}\n")
 
+DB_PATH = "./DB-WEB"
+COLLECTION = "blog"
+
 if __name__ == "__main__":
     llm = get_model(base_url=BASE_URL)
-    retriever, _ = init_retriever()
+    #retriever, vector_store = init_retriever(DB_PATH, "blog")
+    retriever, vector_store = get_retriever(DB_PATH, COLLECTION)
+
     history_aware_retriever = create_history_retriever(llm, retriever)
     try_message_history_chain(llm, history_aware_retriever)
     dump_message_history()
