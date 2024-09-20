@@ -14,7 +14,8 @@ from langchain_core.messages import (
 from langchain_core.messages import trim_messages
 from langchain_core.chat_history import (
     BaseChatMessageHistory,
-    InMemoryChatMessageHistory,)
+    InMemoryChatMessageHistory
+)
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -29,13 +30,15 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return store[session_id]
 
 def invoke_with_history(model, messages, config):
-    with_message_history = RunnableWithMessageHistory(model, get_session_history)
+    with_message_history = RunnableWithMessageHistory(
+        model, 
+        get_session_history
+    )
 
     response = with_message_history.invoke(
         messages,
         config=config,
     )
-
     return response
 
 def converse_with_history(model):
@@ -48,19 +51,19 @@ def converse_with_history(model):
         HumanMessage(content="What's my name?"),
     ]
     r = model.invoke(messages)
-    print(f"\n2: {'#'*15} Query: Three messages\n{'='*10} {r.content}")
+    print(f"\n2: {'#'*15}\nQuery: Three messages\n{'='*10}\n{r.content}")
 
     messages = [HumanMessage(content="Hi, I'm Bob")]
     r = invoke_with_history(model, messages, config_1)
-    print(f"\n3: {'#'*15} Query:history + Hi, I'm Bob.\nsession: abc2\n{'='*10} {r.content}")
+    print(f"\n3: {'#'*15}\nQuery:history + Hi, I'm Bob.\nsession: abc2\n{'='*10}\n{r.content}")
 
     messages = [HumanMessage(content="What's my name?")]
     r = invoke_with_history(model, messages, config_1)
-    print(f"\n4: {'#'*15} Query:history + {"What's my name?"}\nsession: abc2\n{'='*10} {r.content}")
+    print(f"\n4: {'#'*15}\nQuery:history + {"What's my name?"}\nsession: abc2\n{'='*10}\n{r.content}")
 
     messages = [HumanMessage(content="What's my name?")]
     r = invoke_with_history(model, messages, config_2)
-    print(f"\n5: {'#'*15} Query:history + {'What is my name?'}\nsession: abc4\n{'='*10} {r.content}")
+    print(f"\n5: {'#'*15}\nQuery:history + {'What is my name?'}\nsession: abc4\n{'='*10}\n{r.content}")
 
     messages = [HumanMessage(content="What's my name?")]
     r = invoke_with_history(model, messages, config_1)
@@ -83,6 +86,7 @@ def prompt_template_test(model):
     response = with_message_history.invoke( [HumanMessage(content="What's my name?")], config=config, )
     print(f"\n{response.content}")
 
+
 def prompt_variables(model):
     prompt = ChatPromptTemplate.from_messages(
                 [ ("system", "You are a helpful assistant. Answer all questions to the best of your ability in {language}.",),
@@ -100,20 +104,19 @@ def prompt_variables(model):
     response = with_message_history.invoke( {"messages":[HumanMessage(content="What's my name?")], "language": "English"}, config=config,)
     print(f"\n{response.content}")
 
-def manage_history(model):
 
+def manage_history(model):
     prompt = ChatPromptTemplate.from_messages(
-                [ ("system", "You are a helpful assistant. Answer all questions to the best of your ability.",),
+                [ ("system", "You are a helpful assistant. Answer all questions to the best of your ability in {language}.",),
                   MessagesPlaceholder(variable_name="messages"),])
 
-    trimmer = trim_messages(
-        max_tokens=95,
-        strategy="last",
-        token_counter=model,
-        include_system=True,
-        allow_partial=False,
-        start_on="human",
-    )
+    trimmer = trim_messages(    max_tokens=95,
+                                strategy="last",
+                                token_counter=model,
+                                include_system=True,
+                                allow_partial=False,
+                                start_on="human",
+                            )
 
     messages = [
         SystemMessage(content="you're a good assistant"),
@@ -157,7 +160,6 @@ def manage_history(model):
         }
     )
     print(f"\n{response.content}")
-
 
     with_message_history = RunnableWithMessageHistory(
                                 chain,
@@ -215,8 +217,15 @@ def streaming(model):
         config=config,
     ):
         print(r.content, end="|")
+
 if __name__ == '__main__':
     model = ChatOpenAI(model="gpt-3.5-turbo", base_url="http://192.168.0.24:8080")
+    #model = ChatOpenAI(model="gpt-3.5-turbo", base_url=None)
 
     r = model.invoke([HumanMessage(content='Hi')])
     print(f"\n1: {'#'*15} Query:Hi\n{'='*10} {r.content}")
+    converse_with_history(model)
+    prompt_template_test(model)
+    prompt_variables(model)
+    manage_history(model)
+    streaming(model)

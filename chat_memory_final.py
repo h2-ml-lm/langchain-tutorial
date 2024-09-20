@@ -22,6 +22,15 @@ from langchain_openai import ChatOpenAI
 
 from config import *
 
+SYSTEM_PROMPT = (
+    "You are an assistant for question-answering tasks. "
+    "Use the following pieces of retrieved context to answer the question."
+    "If you don't know the answer, say that you don't know." 
+    "Use three sentences maximum and keep the answer concise."
+    "\n\n"
+    "{context}"
+)
+
 def get_model(base_url=None):
     return ChatOpenAI(model="gpt-4o-mini", base_url=base_url)
 
@@ -79,31 +88,6 @@ def create_history_retriever(llm, retriever):
 
     return history_aware_retriever
 
-def init_history_chain(llm, retriever):
-    print(f'\n{'*'*30}\nCreating a chain with the history-aware retriever and the language model...')
-    # 2. Incorporate the retriever into a question-answering chain.
-    system_prompt = (
-        "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer the question."
-        "If you don't know the answer, say that you don't know." 
-        "Use three sentences maximum and keep the answer concise."
-        "\n\n"
-        "{context}"
-    )
-    qa_prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", system_prompt),
-                MessagesPlaceholder("chat_history"),
-                ("human", "{input}"),
-            ]
-        )
-
-
-    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
-    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
-
-    return rag_chain
-
 store = {}
 def get_session_history(session_id: str) -> BaseChatMessageHistory:
     if session_id not in store:
@@ -111,7 +95,16 @@ def get_session_history(session_id: str) -> BaseChatMessageHistory:
     return store[session_id]
 
 def init_message_history_chain(llm, retriever):
-    rag_chain = init_history_chain(llm, retriever)
+    print(f'\n{'*'*30}\nCreating a chain with a retriever, chat history and the language model...')
+    qa_prompt = ChatPromptTemplate.from_messages(
+            [   ("system", SYSTEM_PROMPT),
+                MessagesPlaceholder("chat_history"),
+                ("human", "{input}"),
+            ])
+
+    question_answer_chain = create_stuff_documents_chain(llm, qa_prompt)
+    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
+
     conversational_rag_chain = RunnableWithMessageHistory(
         rag_chain,
         get_session_history,
@@ -160,6 +153,6 @@ if __name__ == "__main__":
     retriever, vector_store = get_retriever(DB_PATH, COLLECTION)
 
     conversational_rag_chain = init_message_history_chain(llm, retriever)
-    history_aware_retriever = create_history_retriever(conversational_rag_chain)
-    try_message_history_chain(llm, history_aware_retriever)
+    #history_aware_retriever = create_history_retriever(conversational_rag_chain)
+    try_message_history_chain(conversational_rag_chain)
     dump_message_history()
